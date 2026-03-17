@@ -163,3 +163,12 @@ model OfferEvent {
   @@index([offerId])
   @@map("offer_events")
 }
+
+model IdempotencyRecord {
+  key        String   @id
+  resource   String
+  resourceId String   @map("resource_id")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("idempotency_records")
+}

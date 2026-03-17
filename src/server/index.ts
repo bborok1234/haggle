@@ -7,6 +7,10 @@ import express from 'express';
 import { searchListingsSchema, handleSearchListings } from '../tools/search-listings.js';
 import { getListingSchema, handleGetListing } from '../tools/get-listing.js';
 import { marketPriceSchema, handleMarketPrice } from '../tools/market-price.js';
+import { registerItemSchema, handleRegisterItem } from '../tools/register-item.js';
+import { updateListingSchema, handleUpdateListing } from '../tools/update-listing.js';
+import { manageListingSchema, handleManageListing } from '../tools/manage-listing.js';
+import type { AuthInfo } from '../lib/auth.js';
 import { logger } from '../lib/logger.js';
 
 function createServer(): McpServer {
@@ -46,6 +50,39 @@ function createServer(): McpServer {
       annotations: { readOnlyHint: true },
     },
     async (args) => handleMarketPrice(args),
+  );
+
+  server.registerTool(
+    'register_item',
+    {
+      title: '매물 등록',
+      description: '중고 매물을 등록합니다. 인증 필수.',
+      inputSchema: registerItemSchema,
+    },
+    async (args, extra) =>
+      handleRegisterItem(args, { authInfo: extra.authInfo as AuthInfo | undefined }),
+  );
+
+  server.registerTool(
+    'update_listing',
+    {
+      title: '매물 수정',
+      description: '매물 정보(가격, 설명 등)를 수정합니다. 소유자만 가능.',
+      inputSchema: updateListingSchema,
+    },
+    async (args, extra) =>
+      handleUpdateListing(args, { authInfo: extra.authInfo as AuthInfo | undefined }),
+  );
+
+  server.registerTool(
+    'manage_listing',
+    {
+      title: '매물 상태 변경',
+      description: '매물 상태를 변경합니다 (예약, 판매완료, 삭제, 재등록). 소유자만 가능.',
+      inputSchema: manageListingSchema,
+    },
+    async (args, extra) =>
+      handleManageListing(args, { authInfo: extra.authInfo as AuthInfo | undefined }),
   );
 
   return server;

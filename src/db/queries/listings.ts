@@ -103,3 +103,57 @@ export async function updateListingStatus(
   if (!updated) return err('CONFLICT');
   return ok(updated);
 }
+
+export async function assertOwnership(
+  prisma: PrismaClient,
+  listingId: string,
+  userId: string,
+): Promise<Result<Listing, string>> {
+  const listing = await prisma.listing.findUnique({ where: { id: listingId } });
+  if (!listing) return err('NOT_FOUND');
+  if (listing.sellerId !== userId) return err('FORBIDDEN');
+  return ok(listing);
+}
+
+export interface UpdateListingInput {
+  title?: string;
+  description?: string;
+  price?: number;
+  isNegotiable?: boolean;
+  photos?: string[];
+  location?: { lat: number; lng: number; name: string };
+  attributes?: Record<string, unknown>;
+}
+
+export async function updateListing(
+  prisma: PrismaClient,
+  id: string,
+  actorId: string,
+  input: UpdateListingInput,
+): Promise<Result<Listing, string>> {
+  const data: Record<string, unknown> = {};
+  if (input.title !== undefined) data['title'] = input.title;
+  if (input.description !== undefined) data['description'] = input.description;
+  if (input.price !== undefined) data['price'] = input.price;
+  if (input.isNegotiable !== undefined) data['isNegotiable'] = input.isNegotiable;
+  if (input.photos !== undefined) data['photos'] = input.photos;
+  if (input.location !== undefined) data['location'] = input.location;
+  if (input.attributes !== undefined) data['attributes'] = input.attributes;
+
+  const listing = await prisma.listing.update({
+    where: { id },
+    data,
+  });
+
+  await prisma.listingEvent.create({
+    data: {
+      listingId: id,
+      eventType: 'updated',
+      oldStatus: listing.status,
+      newStatus: listing.status,
+      actorId,
+    },
+  });
+
+  return ok(listing);
+}
