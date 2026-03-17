@@ -1,0 +1,138 @@
+import { randomUUID } from 'node:crypto';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
+import express from 'express';
+import { searchListingsSchema, handleSearchListings } from '../tools/search-listings.js';
+import { getListingSchema, handleGetListing } from '../tools/get-listing.js';
+import { marketPriceSchema, handleMarketPrice } from '../tools/market-price.js';
+import { logger } from '../lib/logger.js';
+
+function createServer(): McpServer {
+  const server = new McpServer(
+    { name: 'haggle', version: '0.1.0' },
+    { capabilities: { logging: {} } },
+  );
+
+  server.registerTool(
+    'search_listings',
+    {
+      title: '매물 검색',
+      description: '키워드, 가격, 지역 등으로 중고 매물을 검색합니다.',
+      inputSchema: searchListingsSchema,
+      annotations: { readOnlyHint: true },
+    },
+    async (args) => handleSearchListings(args),
+  );
+
+  server.registerTool(
+    'get_listing',
+    {
+      title: '매물 상세',
+      description: '매물 ID로 상세 정보(판매자, 제안 현황)를 조회합니다.',
+      inputSchema: getListingSchema,
+      annotations: { readOnlyHint: true },
+    },
+    async (args) => handleGetListing(args),
+  );
+
+  server.registerTool(
+    'market_price',
+    {
+      title: '시세 조회',
+      description: '키워드로 유사 매물의 가격 분포(최저/최고/평균/중간값)를 조회합니다.',
+      inputSchema: marketPriceSchema,
+      annotations: { readOnlyHint: true },
+    },
+    async (args) => handleMarketPrice(args),
+  );
+
+  return server;
+}
+
+async function runStdio() {
+  const server = createServer();
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  logger.info('MCP server started (stdio)');
+}
+
+async function runHttp(port: number) {
+  const transports: Record<string, StreamableHTTPServerTransport> = {};
+  const app = express();
+  app.use(express.json());
+
+  app.post('/mcp', async (req, res) => {
+    const sessionId = req.headers['mcp-session-id'] as string | undefined;
+
+    if (sessionId && transports[sessionId]) {
+      await transports[sessionId].handleRequest(req, res, req.body);
+      return;
+    }
+
+    if (!sessionId && isInitializeRequest(req.body)) {
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => randomUUID(),
+        onsessioninitialized: (id) => {
+          transports[id] = transport;
+        },
+      });
+      transport.onclose = () => {
+        const sid = transport.sessionId;
+        if (sid) {
+          transports[sid] = undefined as unknown as StreamableHTTPServerTransport;
+          Reflect.deleteProperty(transports, sid);
+        }
+      };
+
+      const server = createServer();
+      await server.connect(transport);
+      await transport.handleRequest(req, res, req.body);
+      return;
+    }
+
+    res.status(400).json({
+      jsonrpc: '2.0',
+      error: { code: -32000, message: 'Bad Request: missing session or initialize' },
+      id: null,
+    });
+  });
+
+  app.get('/mcp', async (req, res) => {
+    const sessionId = req.headers['mcp-session-id'] as string;
+    if (!sessionId || !transports[sessionId]) {
+      res.status(400).send('Invalid session');
+      return;
+    }
+    await transports[sessionId].handleRequest(req, res);
+  });
+
+  app.delete('/mcp', async (req, res) => {
+    const sessionId = req.headers['mcp-session-id'] as string;
+    if (sessionId && transports[sessionId]) {
+      await transports[sessionId].handleRequest(req, res);
+    } else {
+      res.status(400).send('Invalid session');
+    }
+  });
+
+  app.listen(port, () => {
+    logger.info('MCP server started (HTTP)', { port });
+  });
+}
+
+const isStdio = process.argv.includes('--stdio');
+const port = parseInt(process.env['PORT'] ?? '3000', 10);
+
+if (isStdio) {
+  runStdio().catch((err: unknown) => {
+    process.stderr.write(`Fatal: ${err}\n`);
+    process.exit(1);
+  });
+} else {
+  runHttp(port).catch((err: unknown) => {
+    process.stderr.write(`Fatal: ${err}\n`);
+    process.exit(1);
+  });
+}
