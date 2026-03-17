@@ -20,7 +20,7 @@ export function getTestPrisma(): PrismaClient {
 export async function cleanupTestDb(): Promise<void> {
   const prisma = getTestPrisma();
   await prisma.$executeRawUnsafe(
-    'TRUNCATE TABLE offer_events, listing_events, interests, watches, offers, listings, user_identities, users CASCADE',
+    'TRUNCATE TABLE idempotency_records, offer_events, listing_events, interests, watches, offers, listings, user_identities, users CASCADE',
   );
 }
 
