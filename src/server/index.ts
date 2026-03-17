@@ -17,7 +17,11 @@ import { setWatchSchema, handleSetWatch } from '../tools/set-watch.js';
 import type { AuthInfo } from '../lib/auth.js';
 import { logger } from '../lib/logger.js';
 
-function createServer(): McpServer {
+function getAuthInfo(extra: Record<string, unknown>, devAuthInfo?: AuthInfo): AuthInfo | undefined {
+  return (extra.authInfo as AuthInfo | undefined) ?? devAuthInfo;
+}
+
+function createServer(devAuthInfo?: AuthInfo): McpServer {
   const server = new McpServer(
     { name: 'haggle', version: '0.1.0' },
     { capabilities: { logging: {} } },
@@ -63,8 +67,7 @@ function createServer(): McpServer {
       description: '중고 매물을 등록합니다. 인증 필수.',
       inputSchema: registerItemSchema,
     },
-    async (args, extra) =>
-      handleRegisterItem(args, { authInfo: extra.authInfo as AuthInfo | undefined }),
+    async (args, extra) => handleRegisterItem(args, { authInfo: getAuthInfo(extra, devAuthInfo) }),
   );
 
   server.registerTool(
@@ -74,8 +77,7 @@ function createServer(): McpServer {
       description: '매물 정보(가격, 설명 등)를 수정합니다. 소유자만 가능.',
       inputSchema: updateListingSchema,
     },
-    async (args, extra) =>
-      handleUpdateListing(args, { authInfo: extra.authInfo as AuthInfo | undefined }),
+    async (args, extra) => handleUpdateListing(args, { authInfo: getAuthInfo(extra, devAuthInfo) }),
   );
 
   server.registerTool(
@@ -85,8 +87,7 @@ function createServer(): McpServer {
       description: '매물 상태를 변경합니다 (예약, 판매완료, 삭제, 재등록). 소유자만 가능.',
       inputSchema: manageListingSchema,
     },
-    async (args, extra) =>
-      handleManageListing(args, { authInfo: extra.authInfo as AuthInfo | undefined }),
+    async (args, extra) => handleManageListing(args, { authInfo: getAuthInfo(extra, devAuthInfo) }),
   );
 
   server.registerTool(
@@ -96,8 +97,7 @@ function createServer(): McpServer {
       description: '매물에 구매 제안을 넣습니다. 인증 필수.',
       inputSchema: makeOfferSchema,
     },
-    async (args, extra) =>
-      handleMakeOffer(args, { authInfo: extra.authInfo as AuthInfo | undefined }),
+    async (args, extra) => handleMakeOffer(args, { authInfo: getAuthInfo(extra, devAuthInfo) }),
   );
 
   server.registerTool(
@@ -107,8 +107,7 @@ function createServer(): McpServer {
       description: '받은 제안을 수락 또는 거절합니다. 매물 소유자만 가능.',
       inputSchema: respondOfferSchema,
     },
-    async (args, extra) =>
-      handleRespondOffer(args, { authInfo: extra.authInfo as AuthInfo | undefined }),
+    async (args, extra) => handleRespondOffer(args, { authInfo: getAuthInfo(extra, devAuthInfo) }),
   );
 
   server.registerTool(
@@ -119,8 +118,7 @@ function createServer(): McpServer {
       inputSchema: myDashboardSchema,
       annotations: { readOnlyHint: true },
     },
-    async (args, extra) =>
-      handleMyDashboard(args, { authInfo: extra.authInfo as AuthInfo | undefined }),
+    async (args, extra) => handleMyDashboard(args, { authInfo: getAuthInfo(extra, devAuthInfo) }),
   );
 
   server.registerTool(
@@ -130,18 +128,27 @@ function createServer(): McpServer {
       description: '검색 조건을 등록하고, 조건에 맞는 기존 매물을 즉시 반환합니다.',
       inputSchema: setWatchSchema,
     },
-    async (args, extra) =>
-      handleSetWatch(args, { authInfo: extra.authInfo as AuthInfo | undefined }),
+    async (args, extra) => handleSetWatch(args, { authInfo: getAuthInfo(extra, devAuthInfo) }),
   );
 
   return server;
 }
 
-async function runStdio() {
-  const server = createServer();
+function createDevAuthInfo(): AuthInfo {
+  return {
+    token: 'dev-token',
+    clientId: 'dev',
+    scopes: [],
+    extra: { sub: 'dev-user', provider: 'dev' },
+  };
+}
+
+async function runStdio(isDev: boolean) {
+  const devAuthInfo = isDev ? createDevAuthInfo() : undefined;
+  const server = createServer(devAuthInfo);
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  logger.info('MCP server started (stdio)');
+  logger.info('MCP server started (stdio)', { dev: isDev });
 }
 
 async function softAuth(
@@ -229,10 +236,11 @@ async function runHttp(port: number) {
 }
 
 const isStdio = process.argv.includes('--stdio');
+const isDev = process.argv.includes('--dev');
 const port = parseInt(process.env['PORT'] ?? '3000', 10);
 
 if (isStdio) {
-  runStdio().catch((err: unknown) => {
+  runStdio(isDev).catch((err: unknown) => {
     process.stderr.write(`Fatal: ${err}\n`);
     process.exit(1);
   });
