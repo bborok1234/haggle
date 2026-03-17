@@ -159,6 +159,18 @@ src/tools/ 안에서 파일 하나 = MCP 도구 하나. 도구 간 import 금지
 2. 외부 패키지
 3. 프로젝트 내부 모듈 (상대 경로)
 
+## 상태 키잉
+
+서버 내부 상태는 `Mcp-Session-Id`가 아닌 JWT user ID로만 키잉한다. MCP 세션 ID는 클라이언트 호스트가 대화 중간에 재초기화할 수 있어서 신뢰할 수 없다. (ADR-014 참고)
+
+```typescript
+// 올바름 — JWT user ID로 상태 조회
+const listings = await findListingsBySeller(actor.userId);
+
+// 금지 — MCP 세션 ID로 상태 조회
+const state = sessionStore.get(mcpSessionId);
+```
+
 ## 에러 코드
 
 MCP 표준 에러 코드를 사용한다. 커스텀 에러 코드 금지.
