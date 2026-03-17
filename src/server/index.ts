@@ -10,6 +10,8 @@ import { marketPriceSchema, handleMarketPrice } from '../tools/market-price.js';
 import { registerItemSchema, handleRegisterItem } from '../tools/register-item.js';
 import { updateListingSchema, handleUpdateListing } from '../tools/update-listing.js';
 import { manageListingSchema, handleManageListing } from '../tools/manage-listing.js';
+import { makeOfferSchema, handleMakeOffer } from '../tools/make-offer.js';
+import { respondOfferSchema, handleRespondOffer } from '../tools/respond-offer.js';
 import type { AuthInfo } from '../lib/auth.js';
 import { logger } from '../lib/logger.js';
 
@@ -83,6 +85,28 @@ function createServer(): McpServer {
     },
     async (args, extra) =>
       handleManageListing(args, { authInfo: extra.authInfo as AuthInfo | undefined }),
+  );
+
+  server.registerTool(
+    'make_offer',
+    {
+      title: '제안 넣기',
+      description: '매물에 구매 제안을 넣습니다. 인증 필수.',
+      inputSchema: makeOfferSchema,
+    },
+    async (args, extra) =>
+      handleMakeOffer(args, { authInfo: extra.authInfo as AuthInfo | undefined }),
+  );
+
+  server.registerTool(
+    'respond_offer',
+    {
+      title: '제안 응답',
+      description: '받은 제안을 수락 또는 거절합니다. 매물 소유자만 가능.',
+      inputSchema: respondOfferSchema,
+    },
+    async (args, extra) =>
+      handleRespondOffer(args, { authInfo: extra.authInfo as AuthInfo | undefined }),
   );
 
   return server;
