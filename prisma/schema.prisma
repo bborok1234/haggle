@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ListingStatus {
+  active
+  reserved
+  sold
+  deleted
+}
+
+enum OfferStatus {
+  pending
+  accepted
+  declined
+  withdrawn
+}
+
+model User {
+  id            String   @id @default(uuid()) @db.Uuid
+  displayName   String   @map("display_name")
+  contactMethod String?  @map("contact_method")
+  location      Json?
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  identities   UserIdentity[]
+  listings     Listing[]
+  buyerOffers  Offer[]         @relation("BuyerOffers")
+  watches      Watch[]
+  interests    Interest[]
+  listingEvents ListingEvent[] @relation("ListingEventActor")
+  offerEvents  OfferEvent[]   @relation("OfferEventActor")
+
+  @@map("users")
+}
+
+model UserIdentity {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  provider  String
+  subject   String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([provider, subject])
+  @@map("user_identities")
+}
+
+model Listing {
+  id            String        @id @default(uuid()) @db.Uuid
+  sellerId      String        @map("seller_id") @db.Uuid
+  title         String        @db.VarChar(200)
+  description   String
+  price         Int
+  isNegotiable  Boolean       @default(false) @map("is_negotiable")
+  status        ListingStatus @default(active)
+  location      Json?
+  photos        String[]
+  attributes    Json?
+  viewCount     Int           @default(0) @map("view_count")
+  interestCount Int           @default(0) @map("interest_count")
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  seller    User           @relation(fields: [sellerId], references: [id])
+  offers    Offer[]
+  interests Interest[]
+  events    ListingEvent[]
+
+  @@index([sellerId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("listings")
+}
+
+model Offer {
+  id           String      @id @default(uuid()) @db.Uuid
+  listingId    String      @map("listing_id") @db.Uuid
+  buyerId      String      @map("buyer_id") @db.Uuid
+  offeredPrice Int         @map("offered_price")
+  message      String?     @db.VarChar(1000)
+  buyerContact String      @map("buyer_contact")
+  status       OfferStatus @default(pending)
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+
+  listing Listing      @relation(fields: [listingId], references: [id])
+  buyer   User         @relation("BuyerOffers", fields: [buyerId], references: [id])
+  events  OfferEvent[]
+
+  @@index([listingId])
+  @@index([buyerId])
+  @@map("offers")
+}
+
+model Watch {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  queryText      String   @map("query_text")
+  maxPrice       Int?     @map("max_price")
+  maxDistanceKm  Int?     @map("max_distance_km")
+  location       Json?
+  notifyMethod   String   @default("kakao") @map("notify_method")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([isActive])
+  @@map("watches")
+}
+
+model Interest {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  listingId String   @map("listing_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user    User    @relation(fields: [userId], references: [id])
+  listing Listing @relation(fields: [listingId], references: [id])
+
+  @@unique([userId, listingId])
+  @@map("interests")
+}
+
+model ListingEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  listingId String   @map("listing_id") @db.Uuid
+  eventType String   @map("event_type")
+  oldStatus String?  @map("old_status")
+  newStatus String   @map("new_status")
+  actorId   String   @map("actor_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  listing Listing @relation(fields: [listingId], references: [id])
+  actor   User    @relation("ListingEventActor", fields: [actorId], references: [id])
+
+  @@index([listingId])
+  @@map("listing_events")
+}
+
+model OfferEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  offerId   String   @map("offer_id") @db.Uuid
+  eventType String   @map("event_type")
+  oldStatus String?  @map("old_status")
+  newStatus String   @map("new_status")
+  actorId   String   @map("actor_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  offer Offer @relation(fields: [offerId], references: [id])
+  actor User  @relation("OfferEventActor", fields: [actorId], references: [id])
+
+  @@index([offerId])
+  @@map("offer_events")
+}
