@@ -12,6 +12,8 @@ import { updateListingSchema, handleUpdateListing } from '../tools/update-listin
 import { manageListingSchema, handleManageListing } from '../tools/manage-listing.js';
 import { makeOfferSchema, handleMakeOffer } from '../tools/make-offer.js';
 import { respondOfferSchema, handleRespondOffer } from '../tools/respond-offer.js';
+import { myDashboardSchema, handleMyDashboard } from '../tools/my-dashboard.js';
+import { setWatchSchema, handleSetWatch } from '../tools/set-watch.js';
 import type { AuthInfo } from '../lib/auth.js';
 import { logger } from '../lib/logger.js';
 
@@ -107,6 +109,29 @@ function createServer(): McpServer {
     },
     async (args, extra) =>
       handleRespondOffer(args, { authInfo: extra.authInfo as AuthInfo | undefined }),
+  );
+
+  server.registerTool(
+    'my_dashboard',
+    {
+      title: '내 현황',
+      description: '내 매물, 받은 제안, 보낸 제안, 워치 현황을 조회합니다.',
+      inputSchema: myDashboardSchema,
+      annotations: { readOnlyHint: true },
+    },
+    async (args, extra) =>
+      handleMyDashboard(args, { authInfo: extra.authInfo as AuthInfo | undefined }),
+  );
+
+  server.registerTool(
+    'set_watch',
+    {
+      title: '감시 등록',
+      description: '검색 조건을 등록하고, 조건에 맞는 기존 매물을 즉시 반환합니다.',
+      inputSchema: setWatchSchema,
+    },
+    async (args, extra) =>
+      handleSetWatch(args, { authInfo: extra.authInfo as AuthInfo | undefined }),
   );
 
   return server;
