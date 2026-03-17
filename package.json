@@ -7,8 +7,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/server/index.ts",
-    "test": "DATABASE_URL=postgresql://postgres:haggle@localhost:5434/haggle_test vitest run",
-    "test:watch": "DATABASE_URL=postgresql://postgres:haggle@localhost:5434/haggle_test vitest",
+    "test": "DATABASE_URL=postgresql://postgres:haggle@localhost:5434/haggle_test MEILISEARCH_HOST=http://localhost:7700 MEILISEARCH_API_KEY=haggle-dev-key JWT_SECRET=test-secret-key-at-least-32-chars! vitest run",
+    "test:watch": "DATABASE_URL=postgresql://postgres:haggle@localhost:5434/haggle_test MEILISEARCH_HOST=http://localhost:7700 MEILISEARCH_API_KEY=haggle-dev-key JWT_SECRET=test-secret-key-at-least-32-chars! vitest",
     "services:up": "docker compose up -d",
     "services:down": "docker compose down",
     "test:setup": "DATABASE_URL=postgresql://postgres:haggle@localhost:5434/haggle_test pnpm prisma migrate dev",
@@ -31,6 +31,7 @@
     "dotenv": "^17.3.1",
     "eslint": "^10.0.3",
     "express": "^5.2.1",
+    "jose": "^6.2.1",
     "meilisearch": "^0.56.0",
     "pg": "^8.20.0",
     "prettier": "^3.8.1",

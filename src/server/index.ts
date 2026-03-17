@@ -58,12 +58,32 @@ async function runStdio() {
   logger.info('MCP server started (stdio)');
 }
 
+async function softAuth(
+  req: express.Request,
+  _res: express.Response,
+  next: express.NextFunction,
+): Promise<void> {
+  const header = req.headers.authorization;
+  if (!header?.startsWith('Bearer ')) {
+    next();
+    return;
+  }
+  const token = header.slice(7);
+  try {
+    const { verifyToken } = await import('../lib/auth.js');
+    (req as express.Request & { auth?: unknown }).auth = await verifyToken(token);
+  } catch {
+    /* invalid token — tool handler will reject if auth required */
+  }
+  next();
+}
+
 async function runHttp(port: number) {
   const transports: Record<string, StreamableHTTPServerTransport> = {};
   const app = express();
   app.use(express.json());
 
-  app.post('/mcp', async (req, res) => {
+  app.post('/mcp', softAuth, async (req, res) => {
     const sessionId = req.headers['mcp-session-id'] as string | undefined;
 
     if (sessionId && transports[sessionId]) {
@@ -99,7 +119,7 @@ async function runHttp(port: number) {
     });
   });
 
-  app.get('/mcp', async (req, res) => {
+  app.get('/mcp', softAuth, async (req, res) => {
     const sessionId = req.headers['mcp-session-id'] as string;
     if (!sessionId || !transports[sessionId]) {
       res.status(400).send('Invalid session');
@@ -108,7 +128,7 @@ async function runHttp(port: number) {
     await transports[sessionId].handleRequest(req, res);
   });
 
-  app.delete('/mcp', async (req, res) => {
+  app.delete('/mcp', softAuth, async (req, res) => {
     const sessionId = req.headers['mcp-session-id'] as string;
     if (sessionId && transports[sessionId]) {
       await transports[sessionId].handleRequest(req, res);

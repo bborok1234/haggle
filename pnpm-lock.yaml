@@ -28,6 +28,9 @@ importers:
       express:
         specifier: ^5.2.1
         version: 5.2.1
+      jose:
+        specifier: ^6.2.1
+        version: 6.2.1
       meilisearch:
         specifier: ^0.56.0
         version: 0.56.0
