@@ -7,8 +7,11 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/server/index.ts",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "DATABASE_URL=postgresql://postgres:haggle@localhost:5434/haggle_test vitest run",
+    "test:watch": "DATABASE_URL=postgresql://postgres:haggle@localhost:5434/haggle_test vitest",
+    "services:up": "docker compose up -d",
+    "services:down": "docker compose down",
+    "test:setup": "DATABASE_URL=postgresql://postgres:haggle@localhost:5434/haggle_test pnpm prisma migrate dev",
     "lint": "eslint . && prettier --check .",
     "lint:fix": "eslint --fix . && prettier --write .",
     "prisma": "prisma",
@@ -22,13 +25,21 @@
   "packageManager": "pnpm@9.15.0",
   "dependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^25.5.0",
+    "@prisma/adapter-pg": "^7.5.0",
+    "@prisma/client": "^7.5.0",
+    "dotenv": "^17.3.1",
     "eslint": "^10.0.3",
+    "pg": "^8.20.0",
     "prettier": "^3.8.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.57.1",
     "vitest": "^4.1.0",
     "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "@types/pg": "^8.18.0",
+    "prisma": "^7.5.0"
   }
 }
